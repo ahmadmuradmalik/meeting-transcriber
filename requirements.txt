@@ -12,7 +12,8 @@ torchcodec==0.11.1      # required by torchaudio for save in newer versions
 demucs==4.0.1
 
 # Speaker diarization
-speechbrain==1.0.4
+# Note: speechbrain wheels on PyPI start at 1.1.0 — using a permissive range
+speechbrain>=1.0.0,<2.0
 scikit-learn>=1.5
 
 # Audio IO

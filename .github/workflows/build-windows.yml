@@ -46,18 +46,28 @@ jobs:
       - name: Smoke test the .exe
         shell: pwsh
         run: |
-          # Start the exe in offscreen Qt mode. If it crashes on import, exit
-          # code will be non-zero. We give it 30s to start and then kill it.
+          # Start the exe in offscreen Qt mode and capture its output. If it
+          # crashes on import, we'll see the error and exit non-zero.
           $env:QT_QPA_PLATFORM = "offscreen"
           $env:ABBU_SMOKE_TEST = "1"
-          $proc = Start-Process -FilePath "dist\MeetingTranscriber.exe" -PassThru -NoNewWindow
-          Start-Sleep -Seconds 30
-          if ($proc.HasExited) {
-            Write-Error "Process exited prematurely with code $($proc.ExitCode)"
-            exit 1
+          $stdout = "smoke_stdout.log"
+          $stderr = "smoke_stderr.log"
+          $proc = Start-Process -FilePath "dist\MeetingTranscriber.exe" `
+              -RedirectStandardOutput $stdout -RedirectStandardError $stderr `
+              -PassThru -NoNewWindow
+          # Wait up to 30s. If still running, kill it (success).
+          if (-not $proc.WaitForExit(30000)) {
+              Write-Host "✓ Smoke test passed: .exe launched and stayed alive 30s"
+              Stop-Process -Id $proc.Id -Force
+              exit 0
           }
-          Stop-Process -Id $proc.Id -Force
-          Write-Host "Smoke test passed: .exe launched and stayed alive 30s"
+          # Process exited within 30s — that's a crash.
+          Write-Host "✗ Process exited prematurely with code $($proc.ExitCode)"
+          Write-Host "--- stdout ---"
+          if (Test-Path $stdout) { Get-Content $stdout }
+          Write-Host "--- stderr ---"
+          if (Test-Path $stderr) { Get-Content $stderr }
+          exit 1
 
       - name: Report bundle size
         shell: pwsh
