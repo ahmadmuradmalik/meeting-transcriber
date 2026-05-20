@@ -1,0 +1,32 @@
+# Runtime dependencies for Meeting Transcriber.
+# Pinned where stability matters; loose where minor versions don't.
+
+# Core ML
+faster-whisper==1.2.0
+ctranslate2==4.6.0
+torch==2.5.1            # CPU-only on Windows (torchaudio pulls the right wheel)
+torchaudio==2.5.1
+torchcodec==0.11.1      # required by torchaudio for save in newer versions
+
+# Audio cleanup
+demucs==4.0.1
+
+# Speaker diarization
+speechbrain==1.0.4
+scikit-learn>=1.5
+
+# Audio IO
+soundfile>=0.13
+numpy>=1.26,<2.3
+
+# HuggingFace model downloads (also pulled in transitively)
+huggingface-hub>=0.27
+
+# Desktop GUI
+PySide6==6.11.1
+
+# System info for error reports
+psutil>=6.0
+
+# Image processing (for the bundled icon)
+Pillow>=11.0

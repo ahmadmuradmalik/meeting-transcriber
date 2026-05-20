@@ -1,0 +1,78 @@
+name: Build Windows executable
+
+on:
+  workflow_dispatch:    # manual trigger via gh CLI / web UI
+  push:
+    tags: ['v*']        # also build on version tag push (for releases)
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Install PyTorch CPU wheels (much smaller than CUDA versions)
+          pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install pyinstaller==6.11.1
+
+      - name: Download ffmpeg + ffprobe binaries
+        shell: pwsh
+        run: |
+          $url = "https://github.com/GyanD/codexffmpeg/releases/download/7.1/ffmpeg-7.1-essentials_build.zip"
+          Invoke-WebRequest -Uri $url -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_extracted -Force
+          $ffmpeg = (Get-ChildItem -Path ffmpeg_extracted -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1).FullName
+          $ffprobe = (Get-ChildItem -Path ffmpeg_extracted -Recurse -Filter "ffprobe.exe" | Select-Object -First 1).FullName
+          Copy-Item $ffmpeg -Destination .\ffmpeg.exe
+          Copy-Item $ffprobe -Destination .\ffprobe.exe
+          Remove-Item ffmpeg.zip
+          Remove-Item -Recurse ffmpeg_extracted
+          Get-Item ffmpeg.exe, ffprobe.exe | Select-Object Name, Length
+
+      - name: Build with PyInstaller
+        run: pyinstaller --clean --noconfirm MeetingTranscriber.spec
+
+      - name: Smoke test the .exe
+        shell: pwsh
+        run: |
+          # Start the exe in offscreen Qt mode. If it crashes on import, exit
+          # code will be non-zero. We give it 30s to start and then kill it.
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:ABBU_SMOKE_TEST = "1"
+          $proc = Start-Process -FilePath "dist\MeetingTranscriber.exe" -PassThru -NoNewWindow
+          Start-Sleep -Seconds 30
+          if ($proc.HasExited) {
+            Write-Error "Process exited prematurely with code $($proc.ExitCode)"
+            exit 1
+          }
+          Stop-Process -Id $proc.Id -Force
+          Write-Host "Smoke test passed: .exe launched and stayed alive 30s"
+
+      - name: Report bundle size
+        shell: pwsh
+        run: Get-Item dist\MeetingTranscriber.exe | Format-List Name, Length, LastWriteTime
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeetingTranscriber-windows-x64
+          path: dist/MeetingTranscriber.exe
+          retention-days: 14
+
+      - name: Upload to release (on tag push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/MeetingTranscriber.exe
+          generate_release_notes: true

@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# PyInstaller outputs
+build/
+dist/
+*.spec.bak
+
+# Local test outputs and caches
+test_output/
+demucs_out/
+models/
+
+# Local audio samples (don't ship private recordings)
+*.m4a
+*.mp3
+*.mp4
+*.mov
+*.wav
+*.flac
+*.ogg
+*.webm
+*.aac
+*.jpeg    # our mis-labeled audio test file is .jpeg
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Downloaded ffmpeg (provided by CI build step on Windows)
+ffmpeg.exe
+ffprobe.exe
+ffmpeg.zip
+ffmpeg_extracted/
+
+# Cached transcription segments (for fast re-render)
+*_segments.json
