@@ -54,6 +54,10 @@ def ensure_models_cached(cfg: dict, on_progress: Callable[[float, str], None]):
     class CallbackTqdm(tqdm):
         """tqdm subclass that re-emits progress to our GUI callback."""
         def __init__(self, *args, **kwargs):
+            # In windowed PyInstaller bundles sys.stdout can be None, which
+            # makes tqdm's default file=sys.stderr fall over. Force a sink.
+            if kwargs.get("file") is None:
+                kwargs["file"] = open(os.devnull, "w", encoding="utf-8")
             super().__init__(*args, **kwargs)
             self._label = (self.desc or "Downloading").split("/")[-1][:40]
             self._emit()
