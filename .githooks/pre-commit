@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Reject commits that contain files >50 MB. Prevents accidentally committing
+# build artifacts (the .exe is ~480 MB, blocked by GitHub's 100 MB limit).
+#
+# Install once:    git config core.hooksPath .githooks
+set -euo pipefail
+
+LIMIT_MB=50
+LIMIT_BYTES=$((LIMIT_MB * 1024 * 1024))
+
+# Files staged for commit
+staged=$(git diff --cached --name-only --diff-filter=ACMRT) || exit 0
+[[ -z "$staged" ]] && exit 0
+
+bad=()
+while IFS= read -r f; do
+  [[ ! -f "$f" ]] && continue
+  size=$(wc -c <"$f")
+  if (( size > LIMIT_BYTES )); then
+    mb=$(awk "BEGIN {printf \"%.1f\", $size / 1024 / 1024}")
+    bad+=("$f  (${mb} MB)")
+  fi
+done <<< "$staged"
+
+if (( ${#bad[@]} > 0 )); then
+  echo "✗ pre-commit: files larger than ${LIMIT_MB} MB cannot be committed:" >&2
+  printf '  %s\n' "${bad[@]}" >&2
+  echo "" >&2
+  echo "If this is a build artifact, add it to .gitignore and unstage it." >&2
+  echo "If you really must commit it, bypass with --no-verify (not recommended)." >&2
+  exit 1
+fi

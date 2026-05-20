@@ -53,3 +53,6 @@ ffmpeg_extracted/
 transcript_*.html
 diarized.json
 results.json
+
+# GitHub Actions artifact downloads — never commit (481 MB .exe)
+MeetingTranscriber-windows-x64/
