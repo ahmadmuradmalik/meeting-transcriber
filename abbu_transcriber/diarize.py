@@ -1,15 +1,20 @@
 """Speaker diarization via ECAPA-TDNN embeddings + agglomerative clustering."""
 from typing import Callable
 
+from .utils import user_cache_dir
+
 _enc_cache = {}
 
 
 def _get_encoder():
     if "enc" not in _enc_cache:
         from speechbrain.inference.speaker import EncoderClassifier
+        # Use a stable per-user cache dir instead of a relative "./models/spkrec"
+        # path — that would land wherever the .exe is launched from (e.g. Downloads).
+        savedir = user_cache_dir() / "spkrec"
         _enc_cache["enc"] = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
-            savedir="models/spkrec",
+            savedir=str(savedir),
             run_opts={"device": "cpu"},
         )
     return _enc_cache["enc"]

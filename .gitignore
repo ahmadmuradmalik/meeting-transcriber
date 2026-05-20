@@ -19,7 +19,10 @@ test_output/
 demucs_out/
 models/
 
-# Local audio samples (don't ship private recordings)
+# Claude Code local config
+.claude/
+
+# Local audio samples — never push private recordings
 *.m4a
 *.mp3
 *.mp4
@@ -29,14 +32,15 @@ models/
 *.ogg
 *.webm
 *.aac
-*.jpeg    # our mis-labeled audio test file is .jpeg
+# Our mis-labelled audio test file uses .jpeg extension; ignore it too
+*.jpeg
 
 # IDE
 .vscode/
 .idea/
 .DS_Store
 
-# Downloaded ffmpeg (provided by CI build step on Windows)
+# CI-downloaded ffmpeg
 ffmpeg.exe
 ffprobe.exe
 ffmpeg.zip
@@ -44,3 +48,8 @@ ffmpeg_extracted/
 
 # Cached transcription segments (for fast re-render)
 *_segments.json
+
+# Stale outputs from old scripts
+transcript_*.html
+diarized.json
+results.json

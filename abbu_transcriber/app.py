@@ -63,7 +63,16 @@ def _build_report(error_text: str) -> str:
 
 from .pipeline import run_pipeline, PRESETS
 
-AUDIO_EXTS = {".m4a", ".mp4", ".mp3", ".wav", ".aac", ".ogg", ".webm", ".flac", ".mov", ".jpeg"}
+AUDIO_EXTS = {
+    # Common audio
+    ".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus",
+    # Video containers we can pull audio from
+    ".mp4", ".mov", ".webm", ".mkv", ".avi",
+    # Voice-recorder formats
+    ".wma", ".amr", ".3gp", ".3g2",
+    # Quirky extensions seen in the wild (e.g. mis-labelled phone recordings)
+    ".jpeg",
+}
 
 
 # ---------- Background worker ----------
@@ -133,8 +142,8 @@ class DropZone(QFrame):
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
-            path, _ = QFileDialog.getOpenFileName(self, "Choose a recording", "",
-                "Audio/Video (*.m4a *.mp3 *.mp4 *.wav *.aac *.ogg *.webm *.flac *.mov *.jpeg);;All files (*)")
+            audio_filter = "Audio/Video (" + " ".join(f"*{e}" for e in sorted(AUDIO_EXTS)) + ");;All files (*)"
+            path, _ = QFileDialog.getOpenFileName(self, "Choose a recording", "", audio_filter)
             if path:
                 self.fileDropped.emit(path)
 
@@ -489,7 +498,7 @@ class ErrorPage(QWidget):
                                               default, "Text (*.txt)")
         if not path:
             return
-        Path(path).write_text(_build_report(self._last_error))
+        Path(path).write_text(_build_report(self._last_error), encoding="utf-8")
         QMessageBox.information(self, "Saved",
             f"Error report saved to:\n{path}\n\nYou can email this file to Ahmad.")
 
@@ -584,6 +593,16 @@ class MainWindow(QMainWindow):
                 QSystemTrayIcon.Warning,
                 5000,
             )
+
+    def closeEvent(self, event):
+        """If the user closes the window mid-transcription, stop the worker
+        cleanly instead of leaving a zombie thread holding files open."""
+        if self.worker and self.worker.isRunning():
+            self.worker.cancel()
+            self.worker.wait(3000)  # give it up to 3s to bail out gracefully
+        if self.tray:
+            self.tray.hide()
+        super().closeEvent(event)
 
 
 def main():

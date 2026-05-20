@@ -176,7 +176,9 @@ def run_pipeline(
         # Cache segments + duration so we can re-render without re-transcribing
         seg_cache = output_dir / f"{stem}_segments.json"
         seg_cache.write_text(__import__("json").dumps(
-            {"segments": segments, "file_duration": duration}, indent=2))
+            {"segments": segments, "file_duration": duration},
+            indent=2, ensure_ascii=False),
+            encoding="utf-8")
         render_html(str(audio_path), segments, str(html_out), title, duration)
         render_txt(segments, str(txt_out), title, duration)
 

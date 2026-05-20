@@ -1,19 +1,21 @@
 """Render diarized transcript to HTML (with sidecar audio reference) and plain text."""
-import html, json, shutil, subprocess
+import html, json, shutil
 from pathlib import Path
 from datetime import datetime
+
+from .utils import run_silent
 
 
 def _probe_audio_format(src: Path) -> str:
     """Return a sensible audio extension based on actual codec/container."""
     try:
-        out = subprocess.run(
+        out = run_silent(
             ["ffprobe", "-v", "error", "-select_streams", "a:0",
              "-show_entries", "stream=codec_name:format=format_name",
              "-of", "default=nw=1", str(src)],
             check=True, capture_output=True, text=True,
         ).stdout
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except Exception:
         return src.suffix.lower() or ".m4a"
     codec = next((l.split("=")[1] for l in out.splitlines() if l.startswith("codec_name=")), "")
     fmt = next((l.split("=")[1] for l in out.splitlines() if l.startswith("format_name=")), "")
@@ -35,13 +37,13 @@ def _copy_audio_for_web(src: Path, base_out_path: Path) -> Path:
         return dst
     if real_ext == ".m4a":
         try:
-            subprocess.run(
+            run_silent(
                 ["ffmpeg", "-y", "-i", str(src), "-c", "copy",
                  "-movflags", "+faststart", "-f", "mp4", str(dst)],
                 check=True, capture_output=True,
             )
             return dst
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except Exception:
             pass
     shutil.copy2(src, dst)
     return dst
@@ -593,7 +595,10 @@ document.getElementById('dlSave').onclick = async () => {{
 </script>
 </body></html>
 """
-    out_path.write_text(doc)
+    # Explicit utf-8 — the HTML contains Unicode glyphs (⬇ ✓ ⏳ etc.)
+    # and segment text can contain any language. Windows default cp1252
+    # cannot encode these.
+    out_path.write_text(doc, encoding="utf-8")
 
 
 def render_txt(segments: list, out_path: str, title: str, file_duration: float):
@@ -608,4 +613,4 @@ def render_txt(segments: list, out_path: str, title: str, file_duration: float):
         if s.get("avg_logprob", 0) < -0.6: marks += " (low confidence)"
         if s.get("no_speech", 0) > 0.5: marks += " (possibly noise)"
         lines.append(f"  [{fmt_time(s['start'])}]  {s['text']}{marks}")
-    Path(out_path).write_text("\n".join(lines))
+    Path(out_path).write_text("\n".join(lines), encoding="utf-8")
