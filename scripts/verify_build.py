@@ -68,13 +68,29 @@ def verify(exe_path: Path) -> bool:
 
     ok = True
 
+    # Build a lookup of every file/module in the bundle. Modules can live in
+    # either the PYZ (pure Python .pyc) or the outer CArchive (binary .pyd
+    # extensions like Cython compiled code, .dll, data files).
+    pyz_modules = set(pyz.toc)
+    carch_paths = set(ar.toc)
+
+    def has_module(name: str) -> bool:
+        if name in pyz_modules:
+            return True
+        # Cython/native extensions in CArchive use path form: pkg\sub\name.cp311-win_amd64.pyd
+        path_prefix = name.replace(".", "\\")
+        for p in carch_paths:
+            if p.startswith(path_prefix) and (p.endswith(".pyd") or p.endswith(".so") or p.endswith(".pyc")):
+                return True
+        return False
+
     # First, confirm required modules are bundled at all
     for mod_name in REQUIRED_MODULES:
-        if mod_name not in pyz.toc:
+        if has_module(mod_name):
+            print(f"  ✓ {mod_name} bundled")
+        else:
             print(f"  ✗ required module missing from bundle: {mod_name}")
             ok = False
-        else:
-            print(f"  ✓ {mod_name} bundled")
 
     for mod_name, func_name, must_contain in EXPECTED_FIXES:
         if mod_name not in pyz.toc:
