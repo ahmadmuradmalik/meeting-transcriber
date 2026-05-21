@@ -7,7 +7,8 @@
 #
 # Usage: scripts/safe_release.sh
 set -euo pipefail
-shopt -s inherit_errexit
+# Note: 'shopt -s inherit_errexit' would be nice but isn't available on
+# macOS's bundled bash 3.2.
 
 REPO="ahmadmuradmalik/meeting-transcriber"
 RELEASE_TAG="v0.1.0-test"
