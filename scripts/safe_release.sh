@@ -62,7 +62,10 @@ log "✓ Artifact: $EXE_PATH (${SIZE_MB} MB)"
 
 # 5. Verify the bundle actually contains the expected fixes
 log "Verifying bundled code..."
-python3 scripts/verify_build.py "$EXE_PATH" || {
+# Use the venv's python so PyInstaller is available; fall back to python3
+VENV_PY=".venv/bin/python"
+PY="${VENV_PY}"; [[ -x "$PY" ]] || PY="python3"
+"$PY" scripts/verify_build.py "$EXE_PATH" || {
   echo "" >&2
   echo "✗ Verification failed: the build does not contain the expected fixes." >&2
   echo "  Do NOT release this build to the user." >&2

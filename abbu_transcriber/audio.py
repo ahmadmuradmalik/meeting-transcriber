@@ -1,12 +1,37 @@
-"""Audio cleanup via Demucs vocal isolation.
-
-Uses Demucs's in-process Python API so this works inside a PyInstaller .exe
-(no shelling out to `python -m demucs`).
+"""Audio cleanup via Demucs vocal isolation, plus helpers for ensuring
+audio is in a format downstream stages can actually load.
 """
 import subprocess
 from pathlib import Path
 
+from .utils import run_silent
+
 _model_cache = {}
+
+# libsndfile (the backend torchaudio uses on Windows) only handles these.
+# Anything else (M4A, MP3, etc.) needs to be transcoded first.
+_LIBSNDFILE_OK = {".wav", ".flac", ".ogg", ".opus", ".aiff", ".aif"}
+
+
+def ensure_libsndfile_compatible(path: str, workdir: str) -> str:
+    """If `path` is in a format libsndfile (and thus torchaudio's default
+    Windows backend) can read, return it unchanged. Otherwise transcode to
+    16kHz mono PCM WAV via ffmpeg and return the new path.
+
+    Avoids: LibsndfileError "Format not recognised" on M4A/MP3 etc.
+    """
+    p = Path(path)
+    if p.suffix.lower() in _LIBSNDFILE_OK:
+        return path
+    out = Path(workdir) / f"{p.stem}_pcm16.wav"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    run_silent(
+        ["ffmpeg", "-y", "-i", str(p),
+         "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le",
+         str(out)],
+        check=True, capture_output=True,
+    )
+    return str(out)
 
 
 def _get_demucs_model(name="htdemucs"):

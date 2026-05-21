@@ -162,10 +162,15 @@ def run_pipeline(
         if len(segments) >= 2:
             on_progress("diarize", -1, "Identifying speakers...")
             from .diarize import diarize
-            segments = diarize(speech_audio, segments,
+            # Ensure the file is loadable by torchaudio's libsndfile backend
+            # on Windows (which can't read M4A/MP3 directly). Transcodes to
+            # 16kHz mono WAV if needed; otherwise passes through.
+            from .audio import ensure_libsndfile_compatible
+            diar_audio = ensure_libsndfile_compatible(speech_audio, str(workdir))
+            segments = diarize(diar_audio, segments,
                                on_progress=lambda p, m: on_progress("diarize", p, m))
         else:
-            for s in segments: s["speaker"] = "S1"
+            for s in segments: s["speaker"] = "Person 1"
         if cancel_check(): raise InterruptedError()
 
         # ---- Stage 4: render
