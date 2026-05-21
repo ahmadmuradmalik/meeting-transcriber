@@ -12,7 +12,9 @@ to keep the .exe under ~2 GB. See pipeline.ensure_models_cached().
 """
 import os
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_dynamic_libs
+from PyInstaller.utils.hooks import (
+    collect_data_files, collect_submodules, collect_dynamic_libs, collect_all,
+)
 
 block_cipher = None
 ROOT = Path(os.path.abspath(SPECPATH))
@@ -45,7 +47,6 @@ for pkg in ("faster_whisper", "ctranslate2", "speechbrain", "speechbrain.inferen
             "speechbrain.inference.speaker", "speechbrain.lobes", "speechbrain.lobes.models",
             "demucs", "demucs.pretrained", "demucs.apply", "demucs.audio",
             "sklearn.cluster", "sklearn.metrics", "sklearn.metrics.pairwise",
-            "scipy.special.cython_special",
             "torch", "torchaudio", "torchcodec",
             "huggingface_hub", "huggingface_hub.utils",
             "PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets",
@@ -62,6 +63,22 @@ for pkg in ("torch", "ctranslate2", "numpy", "PySide6", "soundfile"):
         binaries += collect_dynamic_libs(pkg)
     except Exception:
         pass
+
+# --- Nuclear collect_all for ML libraries with Cython internals ---
+# scipy, sklearn, numpy regularly add new private Cython modules between
+# versions that PyInstaller's autodetection misses. collect_all pulls
+# the entire package — bundle gets bigger but no module-load surprises.
+# (Real bug seen: scipy 1.17 added scipy._cyutility, missing from default
+#  PyInstaller scipy hook → ImportError on diarization.)
+for pkg in ("scipy", "sklearn", "speechbrain", "demucs",
+            "faster_whisper", "ctranslate2"):
+    try:
+        d, b, h = collect_all(pkg)
+        datas += d
+        binaries += b
+        hiddenimports += h
+    except Exception as e:
+        print(f"WARN: collect_all({pkg}) failed: {e}")
 
 
 a = Analysis(

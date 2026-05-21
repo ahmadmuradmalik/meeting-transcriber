@@ -25,6 +25,19 @@ EXPECTED_FIXES = [
     ("abbu_transcriber.utils",    "run_silent",  []),  # confirms utils module exists
 ]
 
+# Modules that must exist in the bundle's PYZ. These were missing in past
+# bad builds (PyInstaller silently dropping new Cython internals).
+REQUIRED_MODULES = [
+    # scipy 1.17 added _cyutility — must be bundled or sklearn breaks on import
+    "scipy._cyutility",
+    "scipy._lib._ccallback_c",
+    "sklearn.cluster._kmeans",
+    "sklearn.utils._cython_blas",
+    "speechbrain.inference.speaker",
+    "faster_whisper.transcribe",
+    "ctranslate2",
+]
+
 
 def walk_consts(code):
     """Yield every constant from a code object and its nested code objects."""
@@ -54,6 +67,15 @@ def verify(exe_path: Path) -> bool:
     pyz = ZlibArchiveReader(str(pyz_path))
 
     ok = True
+
+    # First, confirm required modules are bundled at all
+    for mod_name in REQUIRED_MODULES:
+        if mod_name not in pyz.toc:
+            print(f"  ✗ required module missing from bundle: {mod_name}")
+            ok = False
+        else:
+            print(f"  ✓ {mod_name} bundled")
+
     for mod_name, func_name, must_contain in EXPECTED_FIXES:
         if mod_name not in pyz.toc:
             print(f"  ✗ module missing from bundle: {mod_name}")
