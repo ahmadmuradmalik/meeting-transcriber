@@ -9,13 +9,23 @@ _enc_cache = {}
 def _get_encoder():
     if "enc" not in _enc_cache:
         from speechbrain.inference.speaker import EncoderClassifier
-        # Use a stable per-user cache dir instead of a relative "./models/spkrec"
-        # path — that would land wherever the .exe is launched from (e.g. Downloads).
+        # SpeechBrain defaults to SYMLINK strategy when materialising the model
+        # into savedir. Creating symlinks on Windows requires admin rights or
+        # Developer Mode — neither of which non-technical users have. Force
+        # COPY so the app works for any user account.
+        try:
+            from speechbrain.utils.fetching import LocalStrategy
+            strategy = LocalStrategy.COPY
+        except Exception:
+            # Older speechbrain: accepts the string form
+            strategy = "copy"
+
         savedir = user_cache_dir() / "spkrec"
         _enc_cache["enc"] = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
             savedir=str(savedir),
             run_opts={"device": "cpu"},
+            local_strategy=strategy,
         )
     return _enc_cache["enc"]
 
